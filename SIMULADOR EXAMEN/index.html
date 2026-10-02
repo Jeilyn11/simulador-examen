@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Examen - 250 Preguntas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f5;
+            margin: 0;
+            padding: 20px;
+            color: #2d3748;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #1a365d;
+            text-align: center;
+            font-size: 26px;
+            margin-top: 0;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            background: #edf2f7;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .question-box {
+            margin-bottom: 20px;
+        }
+        .question-title {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            white-space: pre-line;
+        }
+        .options {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .options li {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            font-size: 16px;
+        }
+        .options li:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+        .options li.selected {
+            background: #ebf8ff;
+            border-color: #3182ce;
+            font-weight: 600;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            background: #3182ce;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #2b6cb0;
+        }
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            line-height: 1.5;
+        }
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+        .restart-btn {
+            background: #38a169;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+        }
+        .restart-btn:hover {
+            background: #2f855a;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Simulador de Examen de Grado (250 Preguntas)</h1>
+    <div class="info-panel">
+        <span id="question-number">Pregunta 1</span>
+        <span id="score">Puntaje: 0</span>
+    </div>
+
+    <div id="quiz-body">
+        <div class="question-box">
+            <div class="question-title" id="question-text">Cargando...</div>
+            <ul class="options" id="options-list"></ul>
+        </div>
+        <div id="feedback" class="feedback"></div>
+        <div class="buttons">
+            <button id="btn-submit" onclick="checkAnswer()">Verificar Respuesta</button>
+            <button id="btn-next" onclick="nextQuestion()" disabled>Siguiente Pregunta</button>
+        </div>
+    </div>
+</div>
+
+<!-- Enlace al archivo JavaScript con las preguntas -->
+<script src="questions.js"></script>
+
+<script>
+    let quizQuestions = [];
+    let currentIdx = 0;
+    let selectedOptionKey = null;
+    let score = 0;
+
+    function startQuiz() {
+        // Usa questionsData o allQuestions según lo que esté disponible
+        const rawQuestions = typeof questionsData !== 'undefined' ? questionsData : (typeof allQuestions !== 'undefined' ? allQuestions : []);
+        
+        if (rawQuestions.length === 0) {
+            document.getElementById("question-text").innerText = "No se encontraron las preguntas. Revisa el archivo questions.js";
+            return;
+        }
+
+        quizQuestions = [...rawQuestions].sort(() => Math.random() - 0.5);
+        currentIdx = 0;
+        score = 0;
+        document.getElementById("score").innerText = `Puntaje: 0`;
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        selectedOptionKey = null;
+        document.getElementById("btn-submit").disabled = false;
+        document.getElementById("btn-next").disabled = true;
+        
+        const fb = document.getElementById("feedback");
+        fb.style.display = "none";
+        fb.className = "feedback";
+
+        const q = quizQuestions[currentIdx];
+        document.getElementById("question-number").innerText = `Pregunta ${currentIdx + 1} de ${quizQuestions.length}`;
+        document.getElementById("question-text").innerText = q.question || q.q;
+
+        const optionsList = document.getElementById("options-list");
+        optionsList.innerHTML = "";
+
+        // Si las opciones vienen en un objeto {a: "...", b: "..."}
+        if (typeof q.options === 'object' && !Array.isArray(q.options)) {
+            Object.keys(q.options).forEach(key => {
+                const li = document.createElement("li");
+                li.innerText = `${key.toUpperCase()}) ${q.options[key]}`;
+                li.onclick = () => selectOption(key, li);
+                optionsList.appendChild(li);
+            });
+        } else if (Array.isArray(q.options)) {
+            q.options.forEach((opt, index) => {
+                const li = document.createElement("li");
+                li.innerText = opt;
+                li.onclick = () => selectOption(index, li);
+                optionsList.appendChild(li);
+            });
+        }
+    }
+
+    function selectOption(keyOrIndex, element) {
+        if (document.getElementById("btn-next").disabled === false) return;
+        selectedOptionKey = keyOrIndex;
+        const lis = document.querySelectorAll(".options li");
+        lis.forEach(li => li.classList.remove("selected"));
+        element.classList.add("selected");
+    }
+
+    function checkAnswer() {
+        if (selectedOptionKey === null) {
+            alert("Por favor selecciona una opción.");
+            return;
+        }
+
+        const q = quizQuestions[currentIdx];
+        const fb = document.getElementById("feedback");
+        const correctAnswer = q.answer !== undefined ? q.answer : q.correct;
+        const justification = q.explanation || q.justification || "";
+
+        let isCorrect = false;
+        if (typeof correctAnswer === 'string') {
+            isCorrect = (selectedOptionKey.toString().toLowerCase() === correctAnswer.toString().toLowerCase());
+        } else {
+            isCorrect = (selectedOptionKey === correctAnswer);
+        }
+
+        if (isCorrect) {
+            score++;
+            fb.className = "feedback correct";
+            fb.innerHTML = `<strong>¡Respuesta correcta! 🎉</strong><br><em>${justification}</em>`;
+        } else {
+            fb.className = "feedback incorrect";
+            const correctText = typeof q.options === 'object' && !Array.isArray(q.options) 
+                ? `${correctAnswer.toUpperCase()}) ${q.options[correctAnswer]}`
+                : q.options[correctAnswer];
+            fb.innerHTML = `<strong>Incorrecto. ❌</strong><br>La respuesta correcta es: <strong>${correctText}</strong><br><em>${justification}</em>`;
+        }
+
+        fb.style.display = "block";
+        document.getElementById("score").innerText = `Puntaje: ${score}`;
+        document.getElementById("btn-submit").disabled = true;
+        document.getElementById("btn-next").disabled = false;
+    }
+
+    function nextQuestion() {
+        currentIdx++;
+        if (currentIdx < quizQuestions.length) {
+            loadQuestion();
+        } else {
+            showFinalResults();
+        }
+    }
+
+    function showFinalResults() {
+        const percentage = ((score / quizQuestions.length) * 100).toFixed(1);
+        document.getElementById("quiz-body").innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <h2>¡Completaste las 250 preguntas! 🏆</h2>
+                <p style="font-size: 22px;">Obtuviste <strong>${score}</strong> de <strong>${quizQuestions.length}</strong> aciertos.</p>
+                <p style="font-size: 20px; color: #3182ce;">Tu calificación final es: <strong>${percentage}%</strong></p>
+                <button class="restart-btn" onclick="location.reload()">🔄 Reiniciar examen con nuevo orden</button>
+            </div>
+        `;
+    }
+
+    // Inicializar el examen al cargar la página
+    window.onload = startQuiz;
+</script>
+
+</body>
+</html>
